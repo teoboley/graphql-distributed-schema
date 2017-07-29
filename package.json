@@ -1,7 +1,7 @@
 {
   "name": "modular-graphql",
-  "version": "0.1.1",
-  "description": "Example git project that is used for typescript libraries as a starter pack",
+  "version": "0.1.0",
+  "description": "Modular GraphQL",
   "main": "dist/index.js",
   "typings": "dist/modular-graphql.d.ts",
   "jam": {
