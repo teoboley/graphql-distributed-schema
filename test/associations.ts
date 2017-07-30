@@ -49,13 +49,13 @@ describe("Associations", () => {
 
 		context("one to one relationship", () => {
 			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", {
+				ModularGQL.type("user").associateWith("post", () => ({
 					name: "favoritePost",
 					parentResolveFromChild,
 					childResolveFromParent,
 					parentConnectionArgs,
 					childConnectionArgs
-				});
+				}));
 
 				ModularGQL.generate();
 			});
@@ -77,14 +77,14 @@ describe("Associations", () => {
 
 		context("one to many relationship", () => {
 			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", {
+				ModularGQL.type("user").associateWith("post", () => ({
 					name: "createdPosts",
 					childConnection: GraphQLString,
 					parentResolveFromChild,
 					childResolveFromParent,
 					parentConnectionArgs,
 					childConnectionArgs
-				});
+				}));
 
 				ModularGQL.generate();
 			});
@@ -106,7 +106,7 @@ describe("Associations", () => {
 
 		context("many to many relationship", () => {
 			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", {
+				ModularGQL.type("user").associateWith("post", () => ({
 					name: "likedPosts",
 					parentConnection: GraphQLString,
 					childConnection: GraphQLInt,
@@ -114,7 +114,7 @@ describe("Associations", () => {
 					childResolveFromParent,
 					parentConnectionArgs,
 					childConnectionArgs
-				});
+				}));
 
 				ModularGQL.generate();
 			});

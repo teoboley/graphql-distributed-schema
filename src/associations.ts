@@ -17,7 +17,7 @@ export interface IAssociationConfig {
 
 export type IAssociationRawFunction = (
 	childKey: string,
-	config: IAssociationConfig
+	config: () => IAssociationConfig
 ) => void;
 
 enum Relationship {
@@ -30,77 +30,92 @@ export function associator(
 	parentKey: string,
 	modularGQL: ModularGraphQL
 ): IAssociationRawFunction {
-	return (childKey: string, config: IAssociationConfig) => {
+	return (childKey: string, config: () => IAssociationConfig) => {
 		const parent = modularGQL.type(parentKey);
 		const child = modularGQL.type(childKey);
 
-		let relationship = Relationship.OneToOne;
-		let parentConnection: any = null;
-		let childConnection: any = null;
+		const getConfig = () => {
+			const configuration = config();
 
-		if (config.parentConnection) {
-			relationship = Relationship.ManyToMany;
+			let relationship = Relationship.OneToOne;
+			let parentConnection: any = null;
+			let childConnection: any = null;
 
-			parentConnection = resolveCompiledFromTypeOrString(
-				config.parentConnection,
-				modularGQL
-			);
+			if (configuration.parentConnection) {
+				relationship = Relationship.ManyToMany;
 
-			if (config.childConnection) {
+				parentConnection = resolveCompiledFromTypeOrString(
+					configuration.parentConnection,
+					modularGQL
+				);
+
+				if (configuration.childConnection) {
+					childConnection = resolveCompiledFromTypeOrString(
+						configuration.childConnection,
+						modularGQL
+					);
+				}
+			} else if (configuration.childConnection) {
+				relationship = Relationship.OneToMany;
+
 				childConnection = resolveCompiledFromTypeOrString(
-					config.childConnection,
+					configuration.childConnection,
 					modularGQL
 				);
 			}
-		} else if (config.childConnection) {
-			relationship = Relationship.OneToMany;
 
-			childConnection = resolveCompiledFromTypeOrString(
-				config.childConnection,
-				modularGQL
-			);
-		}
+			return {
+				...configuration,
+				relationship,
+				parentConnection,
+				childConnection,
+			}
+		};
 
 		parent.extend(() => {
+			const configuration = getConfig();
+
 			const elementField: GraphQLFieldConfig =
-				relationship == Relationship.OneToOne
+				configuration.relationship == Relationship.OneToOne
 					? {
 							// single
 							type: modularGQL.compiled(childKey),
-							args: config.childConnectionArgs,
-							resolve: config.childResolveFromParent
+							args: configuration.childConnectionArgs,
+							resolve: configuration.childResolveFromParent
 						}
 					: {
 							// multiple
-							type: childConnection,
-							args: config.childConnectionArgs,
-							resolve: config.childResolveFromParent
+							type: configuration.childConnection,
+							args: configuration.childConnectionArgs,
+							resolve: configuration.childResolveFromParent
 						};
 
 			return {
-				[config.name]: elementField
+				[configuration.name]: elementField
 			};
 		});
 
 		child.extend(() => {
+			const configuration = getConfig();
+
 			const elementField: GraphQLFieldConfig =
-				relationship == Relationship.OneToOne ||
-				relationship == Relationship.OneToMany
+				configuration.relationship == Relationship.OneToOne ||
+				configuration.relationship == Relationship.OneToMany
 					? {
 							// single
 							type: modularGQL.compiled(parentKey),
-							args: config.parentConnectionArgs,
-							resolve: config.parentResolveFromChild
+							args: configuration.parentConnectionArgs,
+							resolve: configuration.parentResolveFromChild
 						}
 					: {
 							// multiple
-							type: parentConnection,
-							args: config.parentConnectionArgs,
-							resolve: config.parentResolveFromChild
+							type: configuration.parentConnection,
+							args: configuration.parentConnectionArgs,
+							resolve: configuration.parentResolveFromChild
 						};
 
 			return {
-				[`${config.name}Of${capitalizeFirstLetter(
+				[`${configuration.name}Of${capitalizeFirstLetter(
 					modularGQL.type(parentKey).name
 				)}`]: elementField
 			};
