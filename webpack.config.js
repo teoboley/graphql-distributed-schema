@@ -2,7 +2,7 @@ const webpack = require("webpack");
 const browserify = require("browserify");
 const path = require("path");
 const fs = require("fs");
-const dts = require("dts-bundle");
+const dtsGenerator = require('dts-generator');
 
 const nodeExternals = require("webpack-node-externals");
 const CleanWebpackPlugin = require('clean-webpack-plugin');
@@ -14,16 +14,18 @@ const config = {
 };
 
 const webpackOpts = {
-	entry: './src/index.ts',
+	entry: {
+		index: './src/index.ts',
+		tests: './test/index.ts'
+	},
 	target: 'node',
 	output: {
-		filename: libPath('index.js'),
+		filename: libPath('[name].js'),
 		libraryTarget: "commonjs2"
 	},
 	resolve: {
 		extensions: ['.ts', '.js'],
 		modules: [
-			'node_modules',
 			'src',
 		]
 	},
@@ -48,24 +50,22 @@ const webpackOpts = {
 		new CleanWebpackPlugin([libPath()]),
 		new webpack.optimize.UglifyJsPlugin(),
 		new WebpackOnBuildPlugin((stats) => {
-			createBrowserVersion(webpackOpts.output.filename, () => {
+			createBrowserVersion(libPath("index.js"), () => {
 				// Invokes dts bundling
+
 				console.log("Bundling d.ts files ...");
-				dts.bundle(bundleOpts);
+				dtsGenerator.default(bundleOpts);
 				console.log("d.ts files bundled");
+
 			});
 		})
 	]
 };
 
 const bundleOpts = {
-	// name of module like in package.json
-	name: 'modular-graphql',
-
-	// path to entry-point (generated .d.ts file for main module)
-	main: config.buildDir + '/index.d.ts',
-
-	removeSource: true,
+	name: "modular-graphql",
+	project: "./",
+	out: "dist/index.d.ts"
 };
 
 function createBrowserVersion (inputJs, callback) {
@@ -91,7 +91,7 @@ function createBrowserVersion (inputJs, callback) {
 
 /* helper function to get into build directory */
 function libPath(name) {
-	if (undefined === name) {
+	if (name === undefined) {
 		return config.buildDir;
 	}
 

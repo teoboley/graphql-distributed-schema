@@ -3,7 +3,7 @@
   "version": "0.1.3",
   "description": "Modular GraphQL",
   "main": "dist/index.js",
-  "typings": "dist/modular-graphql.d.ts",
+  "typings": "dist/index.d.ts",
   "jam": {
     "main": "./dist/index.browser.js"
   },
@@ -13,11 +13,13 @@
   "scripts": {
     "prebuild": "npm install",
     "build": "webpack || echo not ok",
-    "release": "standard-version && npm pack"
+    "release": "standard-version && npm pack",
+    "test": "mocha dist/tests.js"
   },
   "author": "Teo Boley",
   "license": "MIT",
   "devDependencies": {
+    "@types/mocha": "^2.2.41",
     "@types/node": "^8.0.17",
     "awesome-typescript-loader": "^3.2.2",
     "babel-core": "*",
@@ -25,9 +27,12 @@
     "babel-polyfill": "*",
     "babel-preset-es2015": "*",
     "browserify": "^14.4.0",
+    "chai": "^4.1.0",
+    "chai-as-promised": "^7.1.1",
     "clean-webpack-plugin": "^0.1.16",
-    "dts-bundle": "^0.7.3",
+    "dts-generator": "^2.1.0",
     "graphql": "^0.10.5",
+    "mocha": "^3.4.2",
     "on-build-webpack": "^0.1.0",
     "standard-version": "^4.2.0",
     "typescript": "^2.4.2",

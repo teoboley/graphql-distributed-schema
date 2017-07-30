@@ -9,15 +9,8 @@
 		"moduleResolution": "node",
 		"emitDecoratorMetadata": true,
 		"sourceMap": false,
-		"declaration": true,
 		"outDir": "dist",
-		"removeComments": false,
-		"typeRoots": [
-			"node_modules/@types"
-		],
-		"types": [
-			"@types/node"
-		]
+		"removeComments": false
 	},
 	"files": [
 		"src/index.ts"
