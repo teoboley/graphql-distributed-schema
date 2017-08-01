@@ -52,20 +52,21 @@ const webpackOpts = {
 		new WebpackOnBuildPlugin((stats) => {
 			createBrowserVersion(libPath("index.js"), () => {
 				// Invokes dts bundling
-
 				console.log("Bundling d.ts files ...");
 				dtsGenerator.default(bundleOpts);
 				console.log("d.ts files bundled");
-
 			});
 		})
 	]
 };
 
 const bundleOpts = {
+	project: "src",
+	out: "dist/index.d.ts",
+	main: "modular-graphql/index",
 	name: "modular-graphql",
-	project: "./",
-	out: "dist/index.d.ts"
+	verbose: true,
+	sendMessage: console.log
 };
 
 function createBrowserVersion (inputJs, callback) {

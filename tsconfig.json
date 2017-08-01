@@ -9,13 +9,7 @@
 		"moduleResolution": "node",
 		"emitDecoratorMetadata": true,
 		"sourceMap": false,
-		"outDir": "dist",
+		"outDir": "../dist",
 		"removeComments": false
-	},
-	"files": [
-		"src/index.ts"
-	],
-	"exclude": [
-		"node_modules"
-	]
+	}
 }
