@@ -1,6 +1,6 @@
 {
   "name": "modular-graphql",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Modular GraphQL",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
@@ -12,7 +12,7 @@
   },
   "scripts": {
     "prebuild": "npm install",
-    "build": "webpack || echo not ok",
+    "build": "webpack",
     "release": "standard-version && npm pack",
     "test": "mocha dist/tests.js"
   },
