@@ -1,6 +1,6 @@
 import * as chai from "chai";
 import * as chaiAsPromised from "chai-as-promised";
-import { GraphQLID, GraphQLInt, GraphQLNonNull, GraphQLString } from "graphql";
+import { GraphQLBoolean, GraphQLID, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLString } from "graphql";
 
 chai.use(chaiAsPromised);
 const assert = chai.assert;
@@ -108,6 +108,7 @@ describe("Associations", () => {
 			beforeEach(() => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "likedPosts",
+					itemName: "likedPost",
 					parentConnection: GraphQLString,
 					childConnection: GraphQLInt,
 					parentResolveFromChild,
@@ -119,6 +120,33 @@ describe("Associations", () => {
 				ModularGQL.generate();
 			});
 
+			checkAssociationFields("parent", {
+				connection: () => ({
+					obj: ModularGQL.compiled("user").getFields(),
+					type: GraphQLInt,
+					args: childConnectionArgs,
+					resolve: childResolveFromParent
+				}),
+				element: "likedPosts",
+				singleCheck: "hasLikedPost",
+				multiCheck: "haveLikedPosts",
+				multiCheckAll: "haveAllLikedPosts"
+			});
+
+			checkAssociationFields("child", {
+				connection: () => ({
+					obj: ModularGQL.compiled("post").getFields(),
+					type: GraphQLString,
+					args: parentConnectionArgs,
+					resolve: parentResolveFromChild
+				}),
+				element: "likedPostOfUser",
+				singleCheck: "isLikedPostOfUser",
+				multiCheck: "isLikedPostOfUsers",
+				multiCheckAll: "isLikedPostOfAllUsers"
+			});
+
+			/*
 			checkField("parent", () => ({
 				obj: ModularGQL.compiled("user").getFields().likedPosts,
 				type: GraphQLInt,
@@ -132,27 +160,94 @@ describe("Associations", () => {
 				args: parentConnectionArgs,
 				resolve: parentResolveFromChild
 			}));
+			*/
 		});
 	});
 });
 
+function checkAssociationFields(
+	referenceName: string,
+    config: {
+	    connection: () => { obj; type; args; resolve };
+		element?: string;
+	    singleCheck?: string;
+	    multiCheck?: string;
+	    multiCheckAll?: string;
+    }
+) {
+	describe(`${referenceName} fields check`, () => {
+		let connection;
+		beforeEach(() => {
+			connection = config.connection();
+		});
+
+		if (config.element) {
+			checkField("element", () => ({
+				obj: connection.obj[config.element],
+				type: connection.type,
+				args: connection.args,
+				resolve: connection.resolve
+			}));
+		}
+
+		if (config.singleCheck) {
+			checkField("single check", () => ({
+				obj: connection.obj[config.singleCheck],
+				type: GraphQLBoolean,
+				args: {
+					id: {
+						type: new GraphQLNonNull(GraphQLID)
+					}
+				},
+				resolve: () => ({})
+			}));
+		}
+
+		if (config.multiCheck) {
+			checkField("multi check", () => ({
+				obj: connection.obj[config.multiCheck],
+				type: new GraphQLList(GraphQLBoolean),
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: null
+			}));
+		}
+
+		if (config.multiCheckAll) {
+			checkField("multi check all", () => ({
+				obj: connection.obj[config.multiCheckAll],
+				type: GraphQLBoolean,
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: null
+			}));
+		}
+	});
+}
+
 function checkField(
-	referenceName,
+	referenceName: string,
 	getConfig: () => { obj; type; args; resolve }
 ) {
-	describe(`${referenceName} field check`, () => {
+	describe(`${referenceName} field`, () => {
 		let config;
 		beforeEach(() => {
 			config = getConfig();
 			config.args = transformArgs(config.args);
 		});
 
-		it(`should add type property to element field`, () =>
-			assert.include(config.obj, {
+		it(`should add correct type property`, () =>
+			assert.deepInclude(config.obj, {
 				type: config.type
 			}));
 
-		it(`should add args property to element field of ${referenceName} raw type`, done => {
+		it(`should add correct args property`, done => {
 			config.args.forEach(value =>
 				assert.nestedProperty(config.obj.args, "[0].name", value)
 			);
@@ -160,7 +255,7 @@ function checkField(
 			done();
 		});
 
-		it(`should add resolve method to element field of ${referenceName} raw type`, () =>
+		it(`should add correct resolve method`, () =>
 			assert.include(config.obj, {
 				resolve: config.resolve
 			}));

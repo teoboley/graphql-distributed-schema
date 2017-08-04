@@ -1,16 +1,24 @@
 import {
+	GraphQLBoolean,
 	GraphQLFieldConfig,
-	GraphQLFieldConfigArgumentMap,
+	GraphQLFieldConfigArgumentMap, GraphQLList, GraphQLID, GraphQLNonNull,
 	GraphQLObjectType
 } from "graphql";
 import { ModularGraphQL } from "./index";
 
+enum Relationship {
+	OneToOne = "OneToOne",
+	OneToMany = "OneToMany",
+	ManyToMany = "ManyToMany"
+}
+
 export interface IAssociationConfig {
 	name: string;
-	parentConnection?: GraphQLObjectType | string;
+	itemName?: string;
+	parentConnection?: any;
 	parentConnectionArgs?: GraphQLFieldConfigArgumentMap;
 	parentResolveFromChild?: (child, args, context, info) => any;
-	childConnection?: GraphQLObjectType | string;
+	childConnection?: any;
 	childConnectionArgs?: GraphQLFieldConfigArgumentMap;
 	childResolveFromParent?: (parent, args, context, info) => any;
 }
@@ -20,107 +28,193 @@ export type IAssociationRawFunction = (
 	config: () => IAssociationConfig
 ) => void;
 
-enum Relationship {
-	OneToOne = "OneToOne",
-	OneToMany = "OneToMany",
-	ManyToMany = "ManyToMany"
-}
-
 export function associator(
 	parentKey: string,
 	modularGQL: ModularGraphQL
 ): IAssociationRawFunction {
-	return (childKey: string, config: () => IAssociationConfig) => {
+	return (childKey: string, configFn: () => IAssociationConfig) => {
 		const parent = modularGQL.type(parentKey);
 		const child = modularGQL.type(childKey);
 
-		const getConfig = () => {
-			const configuration = config();
-
-			let relationship = Relationship.OneToOne;
-			let parentConnection: any = null;
-			let childConnection: any = null;
-
-			if (configuration.parentConnection) {
-				relationship = Relationship.ManyToMany;
-
-				parentConnection = resolveCompiledFromTypeOrString(
-					configuration.parentConnection,
-					modularGQL
-				);
-
-				if (configuration.childConnection) {
-					childConnection = resolveCompiledFromTypeOrString(
-						configuration.childConnection,
-						modularGQL
-					);
-				}
-			} else if (configuration.childConnection) {
-				relationship = Relationship.OneToMany;
-
-				childConnection = resolveCompiledFromTypeOrString(
-					configuration.childConnection,
-					modularGQL
-				);
-			}
-
-			return {
-				...configuration,
-				relationship,
-				parentConnection,
-				childConnection,
-			}
-		};
-
 		parent.extend(() => {
-			const configuration = getConfig();
+			const config = extractConfig(configFn);
+			const itemName = config.itemName || config.name;
 
-			const elementField: GraphQLFieldConfig =
-				configuration.relationship == Relationship.OneToOne
-					? {
-							// single
-							type: modularGQL.compiled(childKey),
-							args: configuration.childConnectionArgs,
-							resolve: configuration.childResolveFromParent
-						}
-					: {
-							// multiple
-							type: configuration.childConnection,
-							args: configuration.childConnectionArgs,
-							resolve: configuration.childResolveFromParent
-						};
+			// element field
+			const elementField: any = {
+				args: config.childConnectionArgs,
+				resolve: config.childResolveFromParent
+			};
+
+			elementField.type =
+				config.relationship == Relationship.OneToOne
+					? modularGQL.compiled(childKey)
+					: config.childConnection;
+
+			// single check field
+			const singleCheckField: GraphQLFieldConfig = {
+				type: GraphQLBoolean,
+				args: {
+					id: {
+						type: new GraphQLNonNull(GraphQLID)
+					}
+				},
+				resolve: (parentObj, { id }, context, info) => {
+					const childObj = config.childResolveFromParent(parentObj, {}, context, info);
+
+					return (childObj.id === id);
+				}
+			};
+
+			// multi check field
+			const multiCheckField: GraphQLFieldConfig = {
+				type: new GraphQLList(GraphQLBoolean),
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: (parentObj, { id }, context, info) => {
+					const childObj = config.childResolveFromParent(parentObj, {}, context, info);
+
+					// FIXME: Return list
+					return (childObj.id === id);
+				}
+			};
+
+			// multi check all field
+			const multiCheckAllField: GraphQLFieldConfig = {
+				type: GraphQLBoolean,
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: (parentObj, { id }, context, info) => {
+					const childObjs = config.childResolveFromParent(parentObj, {}, context, info);
+
+					// FIXME: Return Boolean
+					return (childObjs.id === id);
+				}
+			};
 
 			return {
-				[configuration.name]: elementField
+				// element
+				[config.name]: elementField,
+				// single check
+				[`has${capitalizeFirstLetter(itemName)}`]: singleCheckField,
+				// multi check
+				[`have${capitalizeFirstLetter(config.name)}`]: multiCheckField,
+				// multi check all
+				// FIXME: Make more sense grammatically
+				[`haveAll${capitalizeFirstLetter(config.name)}`]: multiCheckAllField
 			};
 		});
 
 		child.extend(() => {
-			const configuration = getConfig();
+			const config = extractConfig(configFn);
+			const itemName = config.itemName || config.name;
 
-			const elementField: GraphQLFieldConfig =
-				configuration.relationship == Relationship.OneToOne ||
-				configuration.relationship == Relationship.OneToMany
-					? {
-							// single
-							type: modularGQL.compiled(parentKey),
-							args: configuration.parentConnectionArgs,
-							resolve: configuration.parentResolveFromChild
-						}
-					: {
-							// multiple
-							type: configuration.parentConnection,
-							args: configuration.parentConnectionArgs,
-							resolve: configuration.parentResolveFromChild
-						};
+			// element field
+			const elementField: any = {
+				args: config.parentConnectionArgs,
+				resolve: config.parentResolveFromChild
+			};
+
+			elementField.type =
+				config.relationship == Relationship.OneToOne ||
+				config.relationship == Relationship.OneToMany
+					? modularGQL.compiled(parentKey)
+					: config.parentConnection;
+
+			// single check field
+			const singleCheckField: GraphQLFieldConfig = {
+				type: GraphQLBoolean,
+				args: {
+					id: {
+						type: new GraphQLNonNull(GraphQLID)
+					}
+				},
+				resolve: (childObj, { id }, context, info) => {
+					const parentObj = config.parentResolveFromChild(childObj, {}, context, info);
+
+					return (parentObj.id === id);
+				}
+			};
+
+			// multi check field
+			const multiCheckField: GraphQLFieldConfig = {
+				type: new GraphQLList(GraphQLBoolean),
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: (childObj, { id }, context, info) => {
+					const parentObj = config.parentResolveFromChild(childObj, {}, context, info);
+
+					// FIXME: Return List
+					return (parentObj.id === id);
+				}
+			};
+
+			// multi check all field
+			const multiCheckAllField: GraphQLFieldConfig = {
+				type: GraphQLBoolean,
+				args: {
+					ids: {
+						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+					}
+				},
+				resolve: (childObj, { id }, context, info) => {
+					const parentObjs = config.parentResolveFromChild(childObj, {}, context, info);
+
+					// FIXME: Return Boolean
+					return (parentObjs.id === id);
+				}
+			};
 
 			return {
-				[`${configuration.name}Of${capitalizeFirstLetter(
+				// element
+				[`${itemName}Of${capitalizeFirstLetter(
 					modularGQL.type(parentKey).name
-				)}`]: elementField
+				)}`]: elementField,
+				// single check
+				[`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
+					modularGQL.type(parentKey).name
+				)}`]: singleCheckField,
+				// multi check
+				[`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
+					modularGQL.type(parentKey).name
+				)}s`]: multiCheckField,
+				// TODO: multi check all
+				[`is${capitalizeFirstLetter(itemName)}OfAll${capitalizeFirstLetter(
+					modularGQL.type(parentKey).name
+				)}s`]: multiCheckAllField
 			};
 		});
 	};
+}
+
+interface IExtractedConfig extends IAssociationConfig {
+	relationship: Relationship;
+}
+
+function extractConfig(configFn: () => IAssociationConfig): IExtractedConfig {
+	const extractedConfig = configFn();
+
+	let relationship = Relationship.OneToOne;
+
+	if (extractedConfig.parentConnection) {
+		relationship = Relationship.ManyToMany;
+	} else if (extractedConfig.childConnection) {
+		relationship = Relationship.OneToMany;
+	}
+
+	return {
+		...extractedConfig,
+		relationship
+	}
 }
 
 function capitalizeFirstLetter(string) {

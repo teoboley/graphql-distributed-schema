@@ -65,7 +65,7 @@ const bundleOpts = {
 	out: "dist/index.d.ts",
 	main: "modular-graphql/index",
 	name: "modular-graphql",
-	verbose: true,
+	// verbose: true,
 	sendMessage: console.log
 };
 
