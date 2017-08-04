@@ -4,6 +4,7 @@ import {
 	GraphQLFieldConfigArgumentMap, GraphQLList, GraphQLID, GraphQLNonNull,
 	GraphQLObjectType
 } from "graphql";
+import * as deepMerge from "deepmerge";
 import { ModularGraphQL } from "./index";
 
 enum Relationship {
@@ -15,18 +16,59 @@ enum Relationship {
 export interface IAssociationConfig {
 	name: string;
 	itemName?: string;
-	parentConnection?: any;
-	parentConnectionArgs?: GraphQLFieldConfigArgumentMap;
-	parentResolveFromChild?: (child, args, context, info) => any;
-	childConnection?: any;
-	childConnectionArgs?: GraphQLFieldConfigArgumentMap;
-	childResolveFromParent?: (parent, args, context, info) => any;
+
+	parent: {
+		connection?: any;
+		connectionArgs?: GraphQLFieldConfigArgumentMap;
+		resolveFromChild?: (child, args, context, info) => any;
+		namingFormulae?: {
+			element?: (name, itemName, childName) => string;
+			singleCheck?: (name, itemName, childType) => string;
+			multiCheck?: (name, itemName, childType) => string;
+			multiCheckAll?: (name, itemName, childType) => string;
+		}
+	};
+
+	child: {
+		connection?: any;
+		connectionArgs?: GraphQLFieldConfigArgumentMap;
+		resolveFromParent?: (parent, args, context, info) => any;
+		namingFormulae?: {
+			element?: (name, itemName, parentType) => string;
+			singleCheck?: (name, itemName, parentType) => string;
+			multiCheck?: (name, itemName, parentType) => string;
+			multiCheckAll?: (name, itemName, parentType) => string;
+		}
+	}
 }
 
 export type IAssociationRawFunction = (
 	childKey: string,
 	config: () => IAssociationConfig
 ) => void;
+
+const defaultConfig: IAssociationConfig = {
+	name: "",
+	parent: {
+		namingFormulae: {
+			element: (name) => name,
+			singleCheck: (name, itemName) => `has${capitalizeFirstLetter(itemName)}`,
+			multiCheck: (name) => `have${capitalizeFirstLetter(name)}`,
+			multiCheckAll: (name) => `haveAll${capitalizeFirstLetter(name)}`
+		}
+	},
+	child: {
+		namingFormulae: {
+			element: (name, itemName, parentName) => `${itemName}Of${capitalizeFirstLetter(parentName)}`,
+			singleCheck: (name, itemName, parentName) =>
+				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(parentName)}`,
+			multiCheck: (name, itemName, parentName) =>
+				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(parentName)}s`,
+			multiCheckAll: (name, itemName, parentName) =>
+				`is${capitalizeFirstLetter(itemName)}OfAll${capitalizeFirstLetter(parentName)}s`
+		}
+	}
+};
 
 export function associator(
 	parentKey: string,
@@ -42,14 +84,14 @@ export function associator(
 
 			// element field
 			const elementField: any = {
-				args: config.childConnectionArgs,
-				resolve: config.childResolveFromParent
+				args: config.child.connectionArgs,
+				resolve: config.child.resolveFromParent
 			};
 
 			elementField.type =
 				config.relationship == Relationship.OneToOne
 					? modularGQL.compiled(childKey)
-					: config.childConnection;
+					: config.child.connection;
 
 			// single check field
 			const singleCheckField: GraphQLFieldConfig = {
@@ -60,7 +102,7 @@ export function associator(
 					}
 				},
 				resolve: (parentObj, { id }, context, info) => {
-					const childObj = config.childResolveFromParent(parentObj, {}, context, info);
+					const childObj = config.child.resolveFromParent(parentObj, {}, context, info);
 
 					return (childObj.id === id);
 				}
@@ -75,7 +117,7 @@ export function associator(
 					}
 				},
 				resolve: (parentObj, { id }, context, info) => {
-					const childObj = config.childResolveFromParent(parentObj, {}, context, info);
+					const childObj = config.child.resolveFromParent(parentObj, {}, context, info);
 
 					// FIXME: Return list
 					return (childObj.id === id);
@@ -91,23 +133,37 @@ export function associator(
 					}
 				},
 				resolve: (parentObj, { id }, context, info) => {
-					const childObjs = config.childResolveFromParent(parentObj, {}, context, info);
+					const childObjs = config.child.resolveFromParent(parentObj, {}, context, info);
 
 					// FIXME: Return Boolean
 					return (childObjs.id === id);
 				}
 			};
 
+			const childName = modularGQL.type(childKey).name;
+
 			return {
 				// element
-				[config.name]: elementField,
+				[config.parent.namingFormulae.element(
+					config.name,
+					itemName,
+					childName)]: elementField,
 				// single check
-				[`has${capitalizeFirstLetter(itemName)}`]: singleCheckField,
+				[config.parent.namingFormulae.singleCheck(
+					config.name,
+					itemName,
+					childName)]: singleCheckField,
 				// multi check
-				[`have${capitalizeFirstLetter(config.name)}`]: multiCheckField,
+				[config.parent.namingFormulae.multiCheck(
+					config.name,
+					itemName,
+					childName)]: multiCheckField,
 				// multi check all
 				// FIXME: Make more sense grammatically
-				[`haveAll${capitalizeFirstLetter(config.name)}`]: multiCheckAllField
+				[config.parent.namingFormulae.multiCheckAll(
+					config.name,
+					itemName,
+					childName)]: multiCheckAllField
 			};
 		});
 
@@ -117,15 +173,15 @@ export function associator(
 
 			// element field
 			const elementField: any = {
-				args: config.parentConnectionArgs,
-				resolve: config.parentResolveFromChild
+				args: config.parent.connectionArgs,
+				resolve: config.parent.resolveFromChild
 			};
 
 			elementField.type =
 				config.relationship == Relationship.OneToOne ||
 				config.relationship == Relationship.OneToMany
 					? modularGQL.compiled(parentKey)
-					: config.parentConnection;
+					: config.parent.connection;
 
 			// single check field
 			const singleCheckField: GraphQLFieldConfig = {
@@ -136,7 +192,7 @@ export function associator(
 					}
 				},
 				resolve: (childObj, { id }, context, info) => {
-					const parentObj = config.parentResolveFromChild(childObj, {}, context, info);
+					const parentObj = config.parent.resolveFromChild(childObj, {}, context, info);
 
 					return (parentObj.id === id);
 				}
@@ -151,7 +207,7 @@ export function associator(
 					}
 				},
 				resolve: (childObj, { id }, context, info) => {
-					const parentObj = config.parentResolveFromChild(childObj, {}, context, info);
+					const parentObj = config.parent.resolveFromChild(childObj, {}, context, info);
 
 					// FIXME: Return List
 					return (parentObj.id === id);
@@ -167,30 +223,36 @@ export function associator(
 					}
 				},
 				resolve: (childObj, { id }, context, info) => {
-					const parentObjs = config.parentResolveFromChild(childObj, {}, context, info);
+					const parentObjs = config.parent.resolveFromChild(childObj, {}, context, info);
 
 					// FIXME: Return Boolean
 					return (parentObjs.id === id);
 				}
 			};
 
+			const parentName = modularGQL.type(parentKey).name;
+
 			return {
 				// element
-				[`${itemName}Of${capitalizeFirstLetter(
-					modularGQL.type(parentKey).name
-				)}`]: elementField,
+				[config.child.namingFormulae.element(
+					config.name,
+					itemName,
+					parentName)]: elementField,
 				// single check
-				[`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
-					modularGQL.type(parentKey).name
-				)}`]: singleCheckField,
+				[config.child.namingFormulae.singleCheck(
+					config.name,
+					itemName,
+					parentName)]: singleCheckField,
 				// multi check
-				[`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
-					modularGQL.type(parentKey).name
-				)}s`]: multiCheckField,
-				// TODO: multi check all
-				[`is${capitalizeFirstLetter(itemName)}OfAll${capitalizeFirstLetter(
-					modularGQL.type(parentKey).name
-				)}s`]: multiCheckAllField
+				[config.child.namingFormulae.multiCheck(
+					config.name,
+					itemName,
+					parentName)]: multiCheckField,
+				// multi check all
+				[config.child.namingFormulae.multiCheckAll(
+					config.name,
+					itemName,
+					parentName)]: multiCheckAllField
 			};
 		});
 	};
@@ -201,18 +263,18 @@ interface IExtractedConfig extends IAssociationConfig {
 }
 
 function extractConfig(configFn: () => IAssociationConfig): IExtractedConfig {
-	const extractedConfig = configFn();
+	const config = deepMerge(defaultConfig, configFn());
 
 	let relationship = Relationship.OneToOne;
 
-	if (extractedConfig.parentConnection) {
+	if (config.parent.connection) {
 		relationship = Relationship.ManyToMany;
-	} else if (extractedConfig.childConnection) {
+	} else if (config.child.connection) {
 		relationship = Relationship.OneToMany;
 	}
 
 	return {
-		...extractedConfig,
+		...config,
 		relationship
 	}
 }

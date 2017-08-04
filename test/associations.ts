@@ -51,15 +51,20 @@ describe("Associations", () => {
 			beforeEach(() => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "favoritePost",
-					parentResolveFromChild,
-					childResolveFromParent,
-					parentConnectionArgs,
-					childConnectionArgs
+					parent: {
+						connectionArgs: parentConnectionArgs,
+						resolveFromChild: parentResolveFromChild
+					},
+					child: {
+						connectionArgs: childConnectionArgs,
+						resolveFromParent: childResolveFromParent
+					}
 				}));
 
 				ModularGQL.generate();
 			});
 
+			/*
 			checkField("parent", () => ({
 				obj: ModularGQL.compiled("user").getFields().favoritePost,
 				type: ModularGQL.compiled("post"),
@@ -73,21 +78,28 @@ describe("Associations", () => {
 				args: parentConnectionArgs,
 				resolve: parentResolveFromChild
 			}));
+			*/
 		});
 
 		context("one to many relationship", () => {
 			beforeEach(() => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "createdPosts",
-					childConnection: GraphQLString,
-					parentResolveFromChild,
-					childResolveFromParent,
-					parentConnectionArgs,
-					childConnectionArgs
+					parent: {
+						connectionArgs: parentConnectionArgs,
+						resolveFromChild: parentResolveFromChild
+					},
+					child: {
+						connection: GraphQLString,
+						connectionArgs: childConnectionArgs,
+						resolveFromParent: childResolveFromParent
+					}
 				}));
 
 				ModularGQL.generate();
 			});
+
+			/*
 
 			checkField("parent", () => ({
 				obj: ModularGQL.compiled("user").getFields().createdPosts,
@@ -102,6 +114,8 @@ describe("Associations", () => {
 				args: parentConnectionArgs,
 				resolve: parentResolveFromChild
 			}));
+
+			*/
 		});
 
 		context("many to many relationship", () => {
@@ -109,12 +123,19 @@ describe("Associations", () => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "likedPosts",
 					itemName: "likedPost",
-					parentConnection: GraphQLString,
-					childConnection: GraphQLInt,
-					parentResolveFromChild,
-					childResolveFromParent,
-					parentConnectionArgs,
-					childConnectionArgs
+					parent: {
+						connection: GraphQLString,
+						connectionArgs: parentConnectionArgs,
+						resolveFromChild: parentResolveFromChild,
+						namingFormulae: {
+							multiCheckAll: () => "haveLikedAllPosts"
+						}
+					},
+					child: {
+						connection: GraphQLInt,
+						connectionArgs: childConnectionArgs,
+						resolveFromParent: childResolveFromParent
+					}
 				}));
 
 				ModularGQL.generate();
@@ -130,7 +151,7 @@ describe("Associations", () => {
 				element: "likedPosts",
 				singleCheck: "hasLikedPost",
 				multiCheck: "haveLikedPosts",
-				multiCheckAll: "haveAllLikedPosts"
+				multiCheckAll: "haveLikedAllPosts"
 			});
 
 			checkAssociationFields("child", {
@@ -145,22 +166,6 @@ describe("Associations", () => {
 				multiCheck: "isLikedPostOfUsers",
 				multiCheckAll: "isLikedPostOfAllUsers"
 			});
-
-			/*
-			checkField("parent", () => ({
-				obj: ModularGQL.compiled("user").getFields().likedPosts,
-				type: GraphQLInt,
-				args: childConnectionArgs,
-				resolve: childResolveFromParent
-			}));
-
-			checkField("child", () => ({
-				obj: ModularGQL.compiled("post").getFields().likedPostsOfUser,
-				type: GraphQLString,
-				args: parentConnectionArgs,
-				resolve: parentResolveFromChild
-			}));
-			*/
 		});
 	});
 });
