@@ -1,7 +1,10 @@
 import {
 	GraphQLBoolean,
 	GraphQLFieldConfig,
-	GraphQLFieldConfigArgumentMap, GraphQLList, GraphQLID, GraphQLNonNull,
+	GraphQLFieldConfigArgumentMap,
+	GraphQLList,
+	GraphQLID,
+	GraphQLNonNull,
 	GraphQLObjectType
 } from "graphql";
 import * as deepMerge from "deepmerge";
@@ -21,25 +24,27 @@ export interface IAssociationConfig {
 		connection?: any;
 		connectionArgs?: GraphQLFieldConfigArgumentMap;
 		resolveFromChild?: (child, args, context, info) => any;
+		index?: string;
 		namingFormulae?: {
 			element?: (name, itemName, childName) => string;
 			singleCheck?: (name, itemName, childType) => string;
 			multiCheck?: (name, itemName, childType) => string;
 			multiCheckAll?: (name, itemName, childType) => string;
-		}
+		};
 	};
 
 	child: {
 		connection?: any;
 		connectionArgs?: GraphQLFieldConfigArgumentMap;
 		resolveFromParent?: (parent, args, context, info) => any;
+		index?: string;
 		namingFormulae?: {
 			element?: (name, itemName, parentType) => string;
 			singleCheck?: (name, itemName, parentType) => string;
 			multiCheck?: (name, itemName, parentType) => string;
 			multiCheckAll?: (name, itemName, parentType) => string;
-		}
-	}
+		};
+	};
 }
 
 export type IAssociationRawFunction = (
@@ -50,22 +55,32 @@ export type IAssociationRawFunction = (
 const defaultConfig: IAssociationConfig = {
 	name: "",
 	parent: {
+		index: "id",
 		namingFormulae: {
-			element: (name) => name,
-			singleCheck: (name, itemName) => `has${capitalizeFirstLetter(itemName)}`,
-			multiCheck: (name) => `have${capitalizeFirstLetter(name)}`,
-			multiCheckAll: (name) => `haveAll${capitalizeFirstLetter(name)}`
+			element: name => name,
+			singleCheck: (name, itemName) =>
+				`has${capitalizeFirstLetter(itemName)}`,
+			multiCheck: (name, itemName) => `has${capitalizeFirstLetter(name)}`,
+			multiCheckAll: (name, itemName) => `hasAll${capitalizeFirstLetter(name)}`
 		}
 	},
 	child: {
+		index: "id",
 		namingFormulae: {
-			element: (name, itemName, parentName) => `${itemName}Of${capitalizeFirstLetter(parentName)}`,
+			element: (name, itemName, parentName) =>
+				`${itemName}Of${capitalizeFirstLetter(parentName)}`,
 			singleCheck: (name, itemName, parentName) =>
-				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(parentName)}`,
+				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
+					parentName
+				)}`,
 			multiCheck: (name, itemName, parentName) =>
-				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(parentName)}s`,
+				`is${capitalizeFirstLetter(itemName)}Of${capitalizeFirstLetter(
+					parentName
+				)}s`,
 			multiCheckAll: (name, itemName, parentName) =>
-				`is${capitalizeFirstLetter(itemName)}OfAll${capitalizeFirstLetter(parentName)}s`
+				`is${capitalizeFirstLetter(
+					itemName
+				)}OfAll${capitalizeFirstLetter(parentName)}s`
 		}
 	}
 };
@@ -81,9 +96,13 @@ export function associator(
 		parent.extend(() => {
 			const config = extractConfig(configFn);
 			const itemName = config.itemName || config.name;
+			const childName = modularGQL.type(childKey).name;
+
+			const fields = {};
 
 			// element field
 			const elementField: any = {
+				description: "element field",
 				args: config.child.connectionArgs,
 				resolve: config.child.resolveFromParent
 			};
@@ -93,86 +112,104 @@ export function associator(
 					? modularGQL.compiled(childKey)
 					: config.child.connection;
 
+			fields[config.parent.namingFormulae.element(
+				config.name,
+				itemName,
+				childName
+			)] = elementField;
+
 			// single check field
-			const singleCheckField: GraphQLFieldConfig = {
+			fields[config.parent.namingFormulae.singleCheck(
+				config.name,
+				itemName,
+				childName
+			)] = {
 				type: GraphQLBoolean,
+				description: "single check field",
 				args: {
 					id: {
 						type: new GraphQLNonNull(GraphQLID)
 					}
 				},
 				resolve: (parentObj, { id }, context, info) => {
-					const childObj = config.child.resolveFromParent(parentObj, {}, context, info);
+					const childObj = config.child.resolveFromParent(
+						parentObj,
+						{},
+						context,
+						info
+					);
 
-					return (childObj.id === id);
+					return childObj[config.child.index] === id;
 				}
 			};
 
-			// multi check field
-			const multiCheckField: GraphQLFieldConfig = {
-				type: new GraphQLList(GraphQLBoolean),
-				args: {
-					ids: {
-						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+			if (config.relationship !== Relationship.OneToOne) {
+				// multi check field
+				fields[config.parent.namingFormulae.multiCheck(
+					config.name,
+					itemName,
+					childName
+				)] = {
+					type: new GraphQLList(GraphQLBoolean),
+					description: "multi check field",
+					args: {
+						ids: {
+							type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						}
+					},
+					resolve: (parentObj, { id }, context, info) => {
+						const childObj = config.child.resolveFromParent(
+							parentObj,
+							{},
+							context,
+							info
+						);
+
+						// FIXME: Return list
+						return childObj[config.child.index] === id;
 					}
-				},
-				resolve: (parentObj, { id }, context, info) => {
-					const childObj = config.child.resolveFromParent(parentObj, {}, context, info);
+				};
 
-					// FIXME: Return list
-					return (childObj.id === id);
-				}
-			};
+				// multi check all field
+				fields[config.parent.namingFormulae.multiCheckAll(
+					config.name,
+					itemName,
+					childName
+				)] = {
+					type: GraphQLBoolean,
+					description: "multi check all field",
+					args: {
+						ids: {
+							type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						}
+					},
+					resolve: (parentObj, { id }, context, info) => {
+						const childObjs = config.child.resolveFromParent(
+							parentObj,
+							{},
+							context,
+							info
+						);
 
-			// multi check all field
-			const multiCheckAllField: GraphQLFieldConfig = {
-				type: GraphQLBoolean,
-				args: {
-					ids: {
-						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						// FIXME: Return Boolean
+						return childObjs[config.child.index] === id;
 					}
-				},
-				resolve: (parentObj, { id }, context, info) => {
-					const childObjs = config.child.resolveFromParent(parentObj, {}, context, info);
+				};
+			}
 
-					// FIXME: Return Boolean
-					return (childObjs.id === id);
-				}
-			};
-
-			const childName = modularGQL.type(childKey).name;
-
-			return {
-				// element
-				[config.parent.namingFormulae.element(
-					config.name,
-					itemName,
-					childName)]: elementField,
-				// single check
-				[config.parent.namingFormulae.singleCheck(
-					config.name,
-					itemName,
-					childName)]: singleCheckField,
-				// multi check
-				[config.parent.namingFormulae.multiCheck(
-					config.name,
-					itemName,
-					childName)]: multiCheckField,
-				// multi check all
-				// FIXME: Make more sense grammatically
-				[config.parent.namingFormulae.multiCheckAll(
-					config.name,
-					itemName,
-					childName)]: multiCheckAllField
-			};
+			return fields;
 		});
 
 		child.extend(() => {
 			const config = extractConfig(configFn);
 			const itemName = config.itemName || config.name;
+			const parentName = modularGQL.type(parentKey).name;
+
+			const fields = {};
 
 			// element field
 			const elementField: any = {
+				description: "element field",
 				args: config.parent.connectionArgs,
 				resolve: config.parent.resolveFromChild
 			};
@@ -183,77 +220,94 @@ export function associator(
 					? modularGQL.compiled(parentKey)
 					: config.parent.connection;
 
+			fields[config.child.namingFormulae.element(
+				config.name,
+				itemName,
+				parentName
+			)] = elementField;
+
 			// single check field
 			const singleCheckField: GraphQLFieldConfig = {
 				type: GraphQLBoolean,
+				description: "single check field",
 				args: {
 					id: {
 						type: new GraphQLNonNull(GraphQLID)
 					}
 				},
 				resolve: (childObj, { id }, context, info) => {
-					const parentObj = config.parent.resolveFromChild(childObj, {}, context, info);
+					const parentObj = config.parent.resolveFromChild(
+						childObj,
+						{},
+						context,
+						info
+					);
 
-					return (parentObj.id === id);
+					return parentObj[config.parent.index] === id;
 				}
 			};
 
-			// multi check field
-			const multiCheckField: GraphQLFieldConfig = {
-				type: new GraphQLList(GraphQLBoolean),
-				args: {
-					ids: {
-						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+			fields[config.child.namingFormulae.singleCheck(
+				config.name,
+				itemName,
+				parentName
+			)] = singleCheckField;
+
+			if (config.relationship === Relationship.ManyToMany) {
+				// multi check field
+				fields[config.child.namingFormulae.multiCheck(
+					config.name,
+					itemName,
+					parentName
+				)] = {
+					type: new GraphQLList(GraphQLBoolean),
+					description: "multi check field",
+					args: {
+						ids: {
+							type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						}
+					},
+					resolve: (childObj, { id }, context, info) => {
+						const parentObj = config.parent.resolveFromChild(
+							childObj,
+							{},
+							context,
+							info
+						);
+
+						// FIXME: Return List
+						return parentObj[config.parent.index] === id;
 					}
-				},
-				resolve: (childObj, { id }, context, info) => {
-					const parentObj = config.parent.resolveFromChild(childObj, {}, context, info);
+				};
 
-					// FIXME: Return List
-					return (parentObj.id === id);
-				}
-			};
+				// multi check all field
+				fields[config.child.namingFormulae.multiCheckAll(
+					config.name,
+					itemName,
+					parentName
+				)] = {
+					type: GraphQLBoolean,
+					description: "multi check all field",
+					args: {
+						ids: {
+							type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						}
+					},
+					resolve: (childObj, { id }, context, info) => {
+						const parentObjs = config.parent.resolveFromChild(
+							childObj,
+							{},
+							context,
+							info
+						);
 
-			// multi check all field
-			const multiCheckAllField: GraphQLFieldConfig = {
-				type: GraphQLBoolean,
-				args: {
-					ids: {
-						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
+						// FIXME: Return Boolean
+						return parentObjs[config.parent.index] === id;
 					}
-				},
-				resolve: (childObj, { id }, context, info) => {
-					const parentObjs = config.parent.resolveFromChild(childObj, {}, context, info);
+				};
+			}
 
-					// FIXME: Return Boolean
-					return (parentObjs.id === id);
-				}
-			};
-
-			const parentName = modularGQL.type(parentKey).name;
-
-			return {
-				// element
-				[config.child.namingFormulae.element(
-					config.name,
-					itemName,
-					parentName)]: elementField,
-				// single check
-				[config.child.namingFormulae.singleCheck(
-					config.name,
-					itemName,
-					parentName)]: singleCheckField,
-				// multi check
-				[config.child.namingFormulae.multiCheck(
-					config.name,
-					itemName,
-					parentName)]: multiCheckField,
-				// multi check all
-				[config.child.namingFormulae.multiCheckAll(
-					config.name,
-					itemName,
-					parentName)]: multiCheckAllField
-			};
+			return fields;
 		});
 	};
 }
@@ -276,7 +330,7 @@ function extractConfig(configFn: () => IAssociationConfig): IExtractedConfig {
 	return {
 		...config,
 		relationship
-	}
+	};
 }
 
 function capitalizeFirstLetter(string) {

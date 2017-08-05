@@ -15,7 +15,7 @@ export interface IDistributedRawType {
 	interfaces?: GraphQLInterfacesThunk | GraphQLInterfaceType[];
 	isTypeOf?: (value: any, info?: GraphQLResolveInfo) => boolean;
 	description?: string;
-	fieldsCollection: Array<(GraphQLFieldConfigMapThunk | GraphQLFieldConfigMap)>;
+	fieldsCollection: Array<GraphQLFieldConfigMapThunk | GraphQLFieldConfigMap>;
 	extend: (
 		fields: GraphQLFieldConfigMapThunk | GraphQLFieldConfigMap
 	) => number;

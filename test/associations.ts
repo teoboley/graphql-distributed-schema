@@ -1,6 +1,13 @@
 import * as chai from "chai";
 import * as chaiAsPromised from "chai-as-promised";
-import { GraphQLBoolean, GraphQLID, GraphQLInt, GraphQLList, GraphQLNonNull, GraphQLString } from "graphql";
+import {
+	GraphQLBoolean,
+	GraphQLID,
+	GraphQLInt,
+	GraphQLList,
+	GraphQLNonNull,
+	GraphQLString
+} from "graphql";
 
 chai.use(chaiAsPromised);
 const assert = chai.assert;
@@ -64,30 +71,40 @@ describe("Associations", () => {
 				ModularGQL.generate();
 			});
 
-			/*
-			checkField("parent", () => ({
-				obj: ModularGQL.compiled("user").getFields().favoritePost,
-				type: ModularGQL.compiled("post"),
-				args: childConnectionArgs,
-				resolve: childResolveFromParent
-			}));
+			checkAssociationFields("parent", {
+				connection: () => ({
+					obj: ModularGQL.compiled("user").getFields(),
+					type: ModularGQL.compiled("post"),
+					args: childConnectionArgs,
+					resolve: childResolveFromParent
+				}),
+				element: "favoritePost",
+				singleCheck: "hasFavoritePost"
+			});
 
-			checkField("child", () => ({
-				obj: ModularGQL.compiled("post").getFields().favoritePostOfUser,
-				type: ModularGQL.compiled("user"),
-				args: parentConnectionArgs,
-				resolve: parentResolveFromChild
-			}));
-			*/
+			checkAssociationFields("child", {
+				connection: () => ({
+					obj: ModularGQL.compiled("post").getFields(),
+					type: ModularGQL.compiled("user"),
+					args: parentConnectionArgs,
+					resolve: parentResolveFromChild
+				}),
+				element: "favoritePostOfUser",
+				singleCheck: "isFavoritePostOfUser"
+			});
 		});
 
 		context("one to many relationship", () => {
 			beforeEach(() => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "createdPosts",
+					itemName: "createdPost",
 					parent: {
 						connectionArgs: parentConnectionArgs,
-						resolveFromChild: parentResolveFromChild
+						resolveFromChild: parentResolveFromChild,
+						namingFormulae: {
+							multiCheckAll: () => "hasCreatedAllPosts"
+						}
 					},
 					child: {
 						connection: GraphQLString,
@@ -99,23 +116,29 @@ describe("Associations", () => {
 				ModularGQL.generate();
 			});
 
-			/*
+			checkAssociationFields("parent", {
+				connection: () => ({
+					obj: ModularGQL.compiled("user").getFields(),
+					type: GraphQLString,
+					args: childConnectionArgs,
+					resolve: childResolveFromParent
+				}),
+				element: "createdPosts",
+				singleCheck: "hasCreatedPost",
+				multiCheck: "hasCreatedPosts",
+				multiCheckAll: "hasCreatedAllPosts"
+			});
 
-			checkField("parent", () => ({
-				obj: ModularGQL.compiled("user").getFields().createdPosts,
-				type: GraphQLString,
-				args: childConnectionArgs,
-				resolve: childResolveFromParent
-			}));
-
-			checkField("child", () => ({
-				obj: ModularGQL.compiled("post").getFields().createdPostsOfUser,
-				type: ModularGQL.compiled("user"),
-				args: parentConnectionArgs,
-				resolve: parentResolveFromChild
-			}));
-
-			*/
+			checkAssociationFields("child", {
+				connection: () => ({
+					obj: ModularGQL.compiled("post").getFields(),
+					type: ModularGQL.compiled("user"),
+					args: parentConnectionArgs,
+					resolve: parentResolveFromChild
+				}),
+				element: "createdPostOfUser",
+				singleCheck: "isCreatedPostOfUser"
+			});
 		});
 
 		context("many to many relationship", () => {
@@ -128,7 +151,7 @@ describe("Associations", () => {
 						connectionArgs: parentConnectionArgs,
 						resolveFromChild: parentResolveFromChild,
 						namingFormulae: {
-							multiCheckAll: () => "haveLikedAllPosts"
+							multiCheckAll: () => "hasLikedAllPosts"
 						}
 					},
 					child: {
@@ -150,8 +173,8 @@ describe("Associations", () => {
 				}),
 				element: "likedPosts",
 				singleCheck: "hasLikedPost",
-				multiCheck: "haveLikedPosts",
-				multiCheckAll: "haveLikedAllPosts"
+				multiCheck: "hasLikedPosts",
+				multiCheckAll: "hasLikedAllPosts"
 			});
 
 			checkAssociationFields("child", {
@@ -172,13 +195,13 @@ describe("Associations", () => {
 
 function checkAssociationFields(
 	referenceName: string,
-    config: {
-	    connection: () => { obj; type; args; resolve };
+	config: {
+		connection: () => { obj; type; args; resolve };
 		element?: string;
-	    singleCheck?: string;
-	    multiCheck?: string;
-	    multiCheckAll?: string;
-    }
+		singleCheck?: string;
+		multiCheck?: string;
+		multiCheckAll?: string;
+	}
 ) {
 	describe(`${referenceName} fields check`, () => {
 		let connection;
@@ -187,83 +210,113 @@ function checkAssociationFields(
 		});
 
 		if (config.element) {
-			checkField("element", () => ({
-				obj: connection.obj[config.element],
-				type: connection.type,
-				args: connection.args,
-				resolve: connection.resolve
-			}));
+			checkField("element", {
+				obj: () => connection.obj[config.element],
+				type: () => connection.type,
+				args: () => connection.args,
+				resolve: () => connection.resolve
+			});
 		}
 
 		if (config.singleCheck) {
-			checkField("single check", () => ({
-				obj: connection.obj[config.singleCheck],
-				type: GraphQLBoolean,
-				args: {
+			checkField("single check", {
+				obj: () => connection.obj[config.singleCheck],
+				type: () => GraphQLBoolean,
+				args: () => ({
 					id: {
 						type: new GraphQLNonNull(GraphQLID)
 					}
-				},
-				resolve: () => ({})
-			}));
+				})
+			});
 		}
 
 		if (config.multiCheck) {
-			checkField("multi check", () => ({
-				obj: connection.obj[config.multiCheck],
-				type: new GraphQLList(GraphQLBoolean),
-				args: {
+			checkField("multi check", {
+				obj: () => connection.obj[config.multiCheck],
+				type: () => new GraphQLList(GraphQLBoolean),
+				args: () => ({
 					ids: {
 						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
 					}
-				},
-				resolve: null
-			}));
+				})
+			});
 		}
 
 		if (config.multiCheckAll) {
-			checkField("multi check all", () => ({
-				obj: connection.obj[config.multiCheckAll],
-				type: GraphQLBoolean,
-				args: {
+			checkField("multi check all", {
+				obj: () => connection.obj[config.multiCheckAll],
+				type: () => GraphQLBoolean,
+				args: () => ({
 					ids: {
 						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
 					}
-				},
-				resolve: null
-			}));
+				})
+			});
 		}
 	});
 }
 
 function checkField(
 	referenceName: string,
-	getConfig: () => { obj; type; args; resolve }
+	config: {
+		obj: () => any;
+		type?: () => any;
+		args?: () => any;
+		resolve?: () => any;
+		resolves?: () => [
+			{
+				from: {
+					obj?: any;
+					args?: any;
+					context?: any;
+					info?: any;
+				};
+				to: any;
+			}
+		];
+	}
 ) {
 	describe(`${referenceName} field`, () => {
-		let config;
+		let transformedArgs = [];
 		beforeEach(() => {
-			config = getConfig();
-			config.args = transformArgs(config.args);
+			if (config.args) {
+				transformedArgs = transformArgs(config.args());
+			}
 		});
 
-		it(`should add correct type property`, () =>
-			assert.deepInclude(config.obj, {
-				type: config.type
+		if (config.type) {
+			it(`should add correct type property`, () =>
+				assert.deepInclude(config.obj(), {
+					type: config.type()
 			}));
+		}
 
-		it(`should add correct args property`, done => {
-			config.args.forEach(value =>
-				assert.nestedProperty(config.obj.args, "[0].name", value)
-			);
+		if (config.args) {
+			it(`should add correct args property`, done => {
+				transformedArgs.forEach(value =>
+					assert.nestedProperty(config.obj().args, "[0].name", value)
+				);
 
-			done();
-		});
+				done();
+			});
+		}
 
-		it(`should add correct resolve method`, () =>
-			assert.include(config.obj, {
-				resolve: config.resolve
-			}));
+		if (config.resolve) {
+			it(`should add correct resolve method`, () =>
+				assert.include(config.obj(), {
+					resolve: config.resolve()
+				}));
+		}
+
+		if (config.resolves) {
+			config.resolves().forEach((resolve, index) => {
+				it(`should resolve correctly given input set ${index}`, () =>
+					assert.deepEqual(
+						config.obj().resolve(resolve.from),
+						resolve.to
+					));
+			});
+		}
 	});
 }
 
