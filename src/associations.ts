@@ -118,6 +118,7 @@ export function associator(
 				childName
 			)] = elementField;
 
+
 			// single check field
 			fields[config.parent.namingFormulae.singleCheck(
 				config.name,
@@ -143,6 +144,7 @@ export function associator(
 				}
 			};
 
+
 			if (config.relationship !== Relationship.OneToOne) {
 				// multi check field
 				fields[config.parent.namingFormulae.multiCheck(
@@ -158,17 +160,19 @@ export function associator(
 						}
 					},
 					resolve: (parentObj, { id }, context, info) => {
-						const childObj = config.child.resolveFromParent(
+						const childObjs = config.child.resolveFromParent(
 							parentObj,
 							{},
 							context,
 							info
 						);
 
-						// FIXME: Return list
-						return childObj[config.child.index] === id;
+						return childObjs.map((childObj, index) => {
+							return childObj[config.child.index] === id
+						});
 					}
 				};
+
 
 				// multi check all field
 				fields[config.parent.namingFormulae.multiCheckAll(
@@ -191,8 +195,9 @@ export function associator(
 							info
 						);
 
-						// FIXME: Return Boolean
-						return childObjs[config.child.index] === id;
+						return childObjs.reduce((prev, current, index) => {
+							return prev && current[config.child.index] === id
+						}, true);
 					}
 				};
 			}
@@ -226,8 +231,13 @@ export function associator(
 				parentName
 			)] = elementField;
 
+
 			// single check field
-			const singleCheckField: GraphQLFieldConfig = {
+			fields[config.child.namingFormulae.singleCheck(
+				config.name,
+				itemName,
+				parentName
+			)] = {
 				type: GraphQLBoolean,
 				description: "single check field",
 				args: {
@@ -247,11 +257,6 @@ export function associator(
 				}
 			};
 
-			fields[config.child.namingFormulae.singleCheck(
-				config.name,
-				itemName,
-				parentName
-			)] = singleCheckField;
 
 			if (config.relationship === Relationship.ManyToMany) {
 				// multi check field
@@ -268,17 +273,19 @@ export function associator(
 						}
 					},
 					resolve: (childObj, { id }, context, info) => {
-						const parentObj = config.parent.resolveFromChild(
+						const parentObjs = config.parent.resolveFromChild(
 							childObj,
 							{},
 							context,
 							info
 						);
 
-						// FIXME: Return List
-						return parentObj[config.parent.index] === id;
+						return parentObjs.map((parentObj, index) => {
+							return parentObj[config.child.index] === id
+						});
 					}
 				};
+
 
 				// multi check all field
 				fields[config.child.namingFormulae.multiCheckAll(
@@ -301,8 +308,9 @@ export function associator(
 							info
 						);
 
-						// FIXME: Return Boolean
-						return parentObjs[config.parent.index] === id;
+						return parentObjs.reduce((prev, current, index) => {
+							return prev && current[config.child.index] === id
+						}, true);
 					}
 				};
 			}
@@ -335,15 +343,4 @@ function extractConfig(configFn: () => IAssociationConfig): IExtractedConfig {
 
 function capitalizeFirstLetter(string) {
 	return string.charAt(0).toUpperCase() + string.slice(1);
-}
-
-function resolveCompiledFromTypeOrString(
-	keyOrObject: object | string,
-	modularGQL: ModularGraphQL
-) {
-	if (typeof keyOrObject === "string") {
-		return modularGQL.compiled(keyOrObject);
-	} else {
-		return keyOrObject;
-	}
 }
