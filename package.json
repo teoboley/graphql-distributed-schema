@@ -1,6 +1,6 @@
 {
   "name": "modular-graphql",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Modular GraphQL",
   "main": "dist/index.js",
   "typings": "dist/index.d.ts",
