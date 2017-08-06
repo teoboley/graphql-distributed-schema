@@ -23,8 +23,9 @@ export interface IAssociationConfig {
 	parent: {
 		connection?: any;
 		connectionArgs?: GraphQLFieldConfigArgumentMap;
-		resolveFromChild?: (child, args, context, info) => any;
-		index?: string;
+		resolveFromChild: (child, args, context, info) => any;
+		primaryKey?: string;
+		edgeName?: string;
 		namingFormulae?: {
 			element?: (name, itemName, childName) => string;
 			singleCheck?: (name, itemName, childType) => string;
@@ -36,8 +37,9 @@ export interface IAssociationConfig {
 	child: {
 		connection?: any;
 		connectionArgs?: GraphQLFieldConfigArgumentMap;
-		resolveFromParent?: (parent, args, context, info) => any;
-		index?: string;
+		resolveFromParent: (parent, args, context, info) => any;
+		primaryKey?: string;
+		edgeName?: string;
 		namingFormulae?: {
 			element?: (name, itemName, parentType) => string;
 			singleCheck?: (name, itemName, parentType) => string;
@@ -55,7 +57,8 @@ export type IAssociationRawFunction = (
 const defaultConfig: IAssociationConfig = {
 	name: "",
 	parent: {
-		index: "id",
+		primaryKey: "id",
+		resolveFromChild: null,
 		namingFormulae: {
 			element: name => name,
 			singleCheck: (name, itemName) =>
@@ -65,7 +68,8 @@ const defaultConfig: IAssociationConfig = {
 		}
 	},
 	child: {
-		index: "id",
+		primaryKey: "id",
+		resolveFromParent: null,
 		namingFormulae: {
 			element: (name, itemName, parentName) =>
 				`${itemName}Of${capitalizeFirstLetter(parentName)}`,
@@ -93,11 +97,14 @@ export function associator(
 		const parent = modularGQL.type(parentKey);
 		const child = modularGQL.type(childKey);
 
+		const getEdges: (obj: any, edgeName: string) => Array<any> = (obj, edgeName) => edgeName && obj[edgeName] ? obj[edgeName] : obj;
+
 		parent.extend(() => {
 			const config = extractConfig(configFn);
 			const itemName = config.itemName || config.name;
 			const childName = modularGQL.type(childKey).name;
 
+			const getChildEdges = (obj) => getEdges(obj, config.child.edgeName);
 			const fields = {};
 
 			// element field
@@ -140,7 +147,7 @@ export function associator(
 						info
 					);
 
-					return childObj[config.child.index] === id;
+					return getChildEdges(childObj)[config.child.primaryKey] === id;
 				}
 			};
 
@@ -167,8 +174,8 @@ export function associator(
 							info
 						);
 
-						return childObjs.map((childObj, index) => {
-							return childObj[config.child.index] === id
+						return getChildEdges(childObjs).map((childObj, index) => {
+							return childObj[config.child.primaryKey] === id
 						});
 					}
 				};
@@ -195,8 +202,8 @@ export function associator(
 							info
 						);
 
-						return childObjs.reduce((prev, current, index) => {
-							return prev && current[config.child.index] === id
+						return getChildEdges(childObjs).reduce((prev, current, index) => {
+							return prev && current[config.child.primaryKey] === id
 						}, true);
 					}
 				};
@@ -210,6 +217,7 @@ export function associator(
 			const itemName = config.itemName || config.name;
 			const parentName = modularGQL.type(parentKey).name;
 
+			const getParentEdges = (obj) => getEdges(obj, config.parent.edgeName);
 			const fields = {};
 
 			// element field
@@ -253,7 +261,7 @@ export function associator(
 						info
 					);
 
-					return parentObj[config.parent.index] === id;
+					return getParentEdges(parentObj)[config.parent.primaryKey] === id;
 				}
 			};
 
@@ -280,8 +288,8 @@ export function associator(
 							info
 						);
 
-						return parentObjs.map((parentObj, index) => {
-							return parentObj[config.child.index] === id
+						return getParentEdges(parentObjs).map((parentObj, index) => {
+							return parentObj.edges[config.child.primaryKey] === id
 						});
 					}
 				};
@@ -308,8 +316,8 @@ export function associator(
 							info
 						);
 
-						return parentObjs.reduce((prev, current, index) => {
-							return prev && current[config.child.index] === id
+						return getParentEdges(parentObjs).reduce((prev, current, index) => {
+							return prev && current[config.child.primaryKey] === id
 						}, true);
 					}
 				};
