@@ -37,12 +37,11 @@ describe("Associations", () => {
 		});
 
 		afterEach(() => {
-			ModularGQL.flushRawTypes();
-			ModularGQL.flushCompiledTypes();
+			ModularGQL.flush();
 		});
 
-		const parentResolveFromChild = () => "parent resolve";
-		const childResolveFromParent = () => "child resolve";
+		const parentResolveFromChild = (childObj, args, context, info) => "parent resolve";
+		const childResolveFromParent = (parentObj, args, context, info) => "child resolve";
 		const parentConnectionArgs = {
 			after: {
 				type: new GraphQLNonNull(GraphQLID)
@@ -59,12 +58,11 @@ describe("Associations", () => {
 				ModularGQL.type("user").associateWith("post", () => ({
 					name: "favoritePost",
 					parent: {
-						connectionArgs: parentConnectionArgs,
-						resolveFromChild: parentResolveFromChild
+						resolve: parentResolveFromChild
 					},
 					child: {
 						connectionArgs: childConnectionArgs,
-						resolveFromParent: childResolveFromParent
+						resolve: childResolveFromParent
 					}
 				}));
 
@@ -86,7 +84,6 @@ describe("Associations", () => {
 				connection: () => ({
 					obj: ModularGQL.compiled("post").getFields(),
 					type: ModularGQL.compiled("user"),
-					args: parentConnectionArgs,
 					resolve: parentResolveFromChild
 				}),
 				element: "favoritePostOfUser",
@@ -100,16 +97,15 @@ describe("Associations", () => {
 					name: "createdPosts",
 					itemName: "createdPost",
 					parent: {
-						connectionArgs: parentConnectionArgs,
-						resolveFromChild: parentResolveFromChild,
-						namingFormulae: {
+						resolve: parentResolveFromChild,
+						naming: {
 							multiCheckAll: () => "hasCreatedAllPosts"
 						}
 					},
 					child: {
 						connection: GraphQLString,
 						connectionArgs: childConnectionArgs,
-						resolveFromParent: childResolveFromParent
+						resolve: childResolveFromParent
 					}
 				}));
 
@@ -119,7 +115,7 @@ describe("Associations", () => {
 			checkAssociationFields("parent", {
 				connection: () => ({
 					obj: ModularGQL.compiled("user").getFields(),
-					type: GraphQLString,
+					type: ModularGQL.compiled("post"),
 					args: childConnectionArgs,
 					resolve: childResolveFromParent
 				}),
@@ -133,7 +129,6 @@ describe("Associations", () => {
 				connection: () => ({
 					obj: ModularGQL.compiled("post").getFields(),
 					type: ModularGQL.compiled("user"),
-					args: parentConnectionArgs,
 					resolve: parentResolveFromChild
 				}),
 				element: "createdPostOfUser",
@@ -149,15 +144,15 @@ describe("Associations", () => {
 					parent: {
 						connection: GraphQLString,
 						connectionArgs: parentConnectionArgs,
-						resolveFromChild: parentResolveFromChild,
-						namingFormulae: {
+						resolve: parentResolveFromChild,
+						naming: {
 							multiCheckAll: () => "hasLikedAllPosts"
 						}
 					},
 					child: {
 						connection: GraphQLInt,
 						connectionArgs: childConnectionArgs,
-						resolveFromParent: childResolveFromParent
+						resolve: childResolveFromParent
 					}
 				}));
 
@@ -196,7 +191,7 @@ describe("Associations", () => {
 function checkAssociationFields(
 	referenceName: string,
 	config: {
-		connection: () => { obj; type; args; resolve };
+		connection: () => { obj; type; args?; resolve };
 		element?: string;
 		singleCheck?: string;
 		multiCheck?: string;
@@ -213,7 +208,7 @@ function checkAssociationFields(
 			checkField("element", {
 				obj: () => connection.obj[config.element],
 				type: () => connection.type,
-				args: () => connection.args,
+				args: () => (connection.args ? connection.args : {}),
 				resolve: () => connection.resolve
 			});
 		}
@@ -226,7 +221,15 @@ function checkAssociationFields(
 					id: {
 						type: new GraphQLNonNull(GraphQLID)
 					}
-				})
+				}),
+				resolves: () => [
+					{
+						from: {
+							obj: {}
+						},
+						to: true
+					}
+				]
 			});
 		}
 
@@ -288,7 +291,7 @@ function checkField(
 			it(`should add correct type property`, () =>
 				assert.deepInclude(config.obj(), {
 					type: config.type()
-			}));
+				}));
 		}
 
 		if (config.args) {
@@ -312,7 +315,14 @@ function checkField(
 			config.resolves().forEach((resolve, index) => {
 				it(`should resolve correctly given input set ${index}`, () =>
 					assert.deepEqual(
-						config.obj().resolve(resolve.from),
+						config
+							.obj()
+							.resolve(
+								resolve.from.obj,
+								resolve.from.args,
+								resolve.from.context,
+								resolve.from.info
+							),
 						resolve.to
 					));
 			});
