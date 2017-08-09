@@ -7,6 +7,7 @@ const dtsGenerator = require('dts-generator');
 const nodeExternals = require("webpack-node-externals");
 const CleanWebpackPlugin = require('clean-webpack-plugin');
 const WebpackOnBuildPlugin = require('on-build-webpack');
+const WebpackSourceMapSupport = require("webpack-source-map-support");
 
 const config = {
 	srcDir: "src",
@@ -18,6 +19,7 @@ const webpackOpts = {
 		index: './src/index.ts',
 		tests: './test/index.ts'
 	},
+	devtool: "source-map",
 	target: 'node',
 	output: {
 		filename: libPath('[name].js'),
@@ -48,7 +50,10 @@ const webpackOpts = {
 	externals: [nodeExternals()],
 	plugins: [
 		new CleanWebpackPlugin([libPath()]),
-		new webpack.optimize.UglifyJsPlugin(),
+		new WebpackSourceMapSupport(),
+		new webpack.optimize.UglifyJsPlugin({
+			sourceMap: true
+		}),
 		new WebpackOnBuildPlugin((stats) => {
 			createBrowserVersion(libPath("index.js"), () => {
 				// Invokes dts bundling

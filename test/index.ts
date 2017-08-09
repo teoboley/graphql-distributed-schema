@@ -7,8 +7,8 @@ const assert = chai.assert;
 
 import ModularGQL from "../src/index";
 
-describe("ModularGraphQL", () => {
-	beforeEach(() => {
+describe("ModularGraphQL", function() {
+	beforeEach(function() {
 		ModularGQL.type("query", {
 			name: "query",
 			fields: () => ({
@@ -20,12 +20,12 @@ describe("ModularGraphQL", () => {
 		});
 	});
 
-	afterEach(() => {
+	afterEach(function() {
 		ModularGQL.flushRawTypes();
 		ModularGQL.flushCompiledTypes();
 	});
 
-	describe("#type()", () => {
+	describe("#type()", function() {
 		it("should return IDistributedRawType when querying existing key", () => {
 			return assert.property(
 				ModularGQL.type("query"),
@@ -43,18 +43,18 @@ describe("ModularGraphQL", () => {
 		});
 	});
 
-	describe("#generate()", () => {});
+	describe("#generate()", function() {});
 
-	describe("#compiled()", () => {
-		beforeEach(() => {
+	describe("#compiled()", function() {
+		beforeEach(function() {
 			ModularGQL.generate();
 		});
 
-		it("should return GraphQLObjectType", () => {
+		it("should return GraphQLObjectType", function() {
 			return assert.property(ModularGQL.compiled("query"), "getFields");
 		});
 
-		it("should produce queryable types", () => {
+		it("should produce queryable types", function() {
 			const schema = new GraphQLSchema({
 				query: ModularGQL.compiled("query")
 			});

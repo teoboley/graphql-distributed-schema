@@ -11,7 +11,7 @@
     "dist/index.js": "./dist/index.browser.js"
   },
   "scripts": {
-    "build": "webpack",
+    "build": "npm run prettify && webpack",
     "release": "standard-version && npm pack",
     "test": "mocha dist/tests.js",
     "prettify": "prettier --use-tabs --tab-width 4 --write '{src,test}/**/*.{ts,js,graphql,json}'"
@@ -40,7 +40,8 @@
     "standard-version": "^4.2.0",
     "typescript": "^2.4.2",
     "webpack": "^3.4.1",
-    "webpack-node-externals": "*"
+    "webpack-node-externals": "*",
+    "webpack-source-map-support": "^2.0.1"
   },
   "dependencies": {
     "deepmerge": "^1.5.0"

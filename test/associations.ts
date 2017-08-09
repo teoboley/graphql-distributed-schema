@@ -14,191 +14,212 @@ const assert = chai.assert;
 
 import ModularGQL from "../src/index";
 
-describe("Associations", () => {
-	describe("#associateWith()", () => {
-		beforeEach(() => {
-			ModularGQL.type("user", {
-				name: "user",
-				fields: () => ({
-					name: {
-						type: GraphQLString
-					}
-				})
-			});
-
-			ModularGQL.type("post", {
-				name: "post",
-				fields: () => ({
-					timestamp: {
-						type: GraphQLString
-					}
-				})
-			});
+describe("Associations", function() {
+	beforeEach(function() {
+		ModularGQL.type("user", {
+			name: "user",
+			fields: () => ({
+				name: {
+					type: GraphQLString
+				}
+			})
 		});
 
-		afterEach(() => {
-			ModularGQL.flush();
+		ModularGQL.type("post", {
+			name: "post",
+			fields: () => ({
+				timestamp: {
+					type: GraphQLString
+				}
+			})
 		});
+	});
 
-		const parentResolveFromChild = (childObj, args, context, info) => "parent resolve";
-		const childResolveFromParent = (parentObj, args, context, info) => "child resolve";
-		const parentConnectionArgs = {
-			after: {
-				type: new GraphQLNonNull(GraphQLID)
-			}
-		};
-		const childConnectionArgs = {
-			before: {
-				type: new GraphQLNonNull(GraphQLID)
-			}
-		};
+	afterEach(function() {
+		ModularGQL.flush();
+	});
 
-		context("one to one relationship", () => {
-			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", () => ({
-					name: "favoritePost",
-					parent: {
-						resolve: parentResolveFromChild
-					},
-					child: {
-						connectionArgs: childConnectionArgs,
-						resolve: childResolveFromParent
-					}
-				}));
+	const parentResolveFromChild = (childObj, args, context, info) =>
+		"parent resolve";
+	const childResolveFromParent = (parentObj, args, context, info) =>
+		"child resolve";
+	const parentConnectionArgs = {
+		after: {
+			type: new GraphQLNonNull(GraphQLID)
+		}
+	};
+	const childConnectionArgs = {
+		before: {
+			type: new GraphQLNonNull(GraphQLID)
+		}
+	};
 
-				ModularGQL.generate();
-			});
-
-			checkAssociationFields("parent", {
-				connection: () => ({
-					obj: ModularGQL.compiled("user").getFields(),
-					type: ModularGQL.compiled("post"),
-					args: childConnectionArgs,
-					resolve: childResolveFromParent
-				}),
-				element: "favoritePost",
-				singleCheck: "hasFavoritePost"
-			});
-
-			checkAssociationFields("child", {
-				connection: () => ({
-					obj: ModularGQL.compiled("post").getFields(),
-					type: ModularGQL.compiled("user"),
+	context("one to one relationship", function() {
+		beforeEach(function() {
+			ModularGQL.type("user").associateWith("post", () => ({
+				name: "favoritePost",
+				parent: {
 					resolve: parentResolveFromChild
-				}),
-				element: "favoritePostOfUser",
-				singleCheck: "isFavoritePostOfUser"
-			});
+				},
+				child: {
+					connectionArgs: childConnectionArgs,
+					resolve: childResolveFromParent
+				}
+			}));
+
+			ModularGQL.generate();
 		});
 
-		context("one to many relationship", () => {
-			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", () => ({
-					name: "createdPosts",
-					itemName: "createdPost",
-					parent: {
-						resolve: parentResolveFromChild,
-						naming: {
-							multiCheckAll: () => "hasCreatedAllPosts"
-						}
-					},
-					child: {
-						connection: GraphQLString,
-						connectionArgs: childConnectionArgs,
-						resolve: childResolveFromParent
-					}
-				}));
-
-				ModularGQL.generate();
-			});
-
-			checkAssociationFields("parent", {
-				connection: () => ({
-					obj: ModularGQL.compiled("user").getFields(),
-					type: ModularGQL.compiled("post"),
-					args: childConnectionArgs,
-					resolve: childResolveFromParent
-				}),
-				element: "createdPosts",
-				singleCheck: "hasCreatedPost",
-				multiCheck: "hasCreatedPosts",
-				multiCheckAll: "hasCreatedAllPosts"
-			});
-
-			checkAssociationFields("child", {
-				connection: () => ({
-					obj: ModularGQL.compiled("post").getFields(),
-					type: ModularGQL.compiled("user"),
-					resolve: parentResolveFromChild
-				}),
-				element: "createdPostOfUser",
-				singleCheck: "isCreatedPostOfUser"
-			});
+		checkAssociationFields("parent", {
+			connection: () => ({
+				obj: ModularGQL.compiled("user").getFields(),
+				type: ModularGQL.compiled("post"),
+				args: childConnectionArgs,
+				resolve: childResolveFromParent
+			}),
+			element: "favoritePost",
+			singleCheck: "hasFavoritePost"
 		});
 
-		context("many to many relationship", () => {
-			beforeEach(() => {
-				ModularGQL.type("user").associateWith("post", () => ({
-					name: "likedPosts",
-					itemName: "likedPost",
-					parent: {
-						connection: GraphQLString,
-						connectionArgs: parentConnectionArgs,
-						resolve: parentResolveFromChild,
-						naming: {
-							multiCheckAll: () => "hasLikedAllPosts"
-						}
-					},
-					child: {
-						connection: GraphQLInt,
-						connectionArgs: childConnectionArgs,
-						resolve: childResolveFromParent
+		checkAssociationFields("child", {
+			connection: () => ({
+				obj: ModularGQL.compiled("post").getFields(),
+				type: ModularGQL.compiled("user"),
+				resolve: parentResolveFromChild
+			}),
+			element: "favoritePostOfUser",
+			singleCheck: "isFavoritePostOfUser"
+		});
+	});
+
+	context("one to many relationship", function() {
+		beforeEach(function() {
+			ModularGQL.type("user").associateWith("post", () => ({
+				name: "createdPosts",
+				itemName: "createdPost",
+				parent: {
+					resolve: parentResolveFromChild,
+					naming: {
+						multiCheckAll: () => "hasCreatedAllPosts"
 					}
-				}));
-
-				ModularGQL.generate();
-			});
-
-			checkAssociationFields("parent", {
-				connection: () => ({
-					obj: ModularGQL.compiled("user").getFields(),
-					type: GraphQLInt,
-					args: childConnectionArgs,
+				},
+				child: {
+					connection: GraphQLString,
+					connectionArgs: childConnectionArgs,
 					resolve: childResolveFromParent
-				}),
-				element: "likedPosts",
-				singleCheck: "hasLikedPost",
-				multiCheck: "hasLikedPosts",
-				multiCheckAll: "hasLikedAllPosts"
-			});
+				}
+			}));
 
-			checkAssociationFields("child", {
-				connection: () => ({
-					obj: ModularGQL.compiled("post").getFields(),
-					type: GraphQLString,
-					args: parentConnectionArgs,
-					resolve: parentResolveFromChild
-				}),
-				element: "likedPostOfUser",
-				singleCheck: "isLikedPostOfUser",
-				multiCheck: "isLikedPostOfUsers",
-				multiCheckAll: "isLikedPostOfAllUsers"
-			});
+			ModularGQL.generate();
+		});
+
+		checkAssociationFields("parent", {
+			connection: () => ({
+				obj: ModularGQL.compiled("user").getFields(),
+				type: ModularGQL.compiled("post"),
+				args: childConnectionArgs,
+				resolve: childResolveFromParent
+			}),
+			element: "createdPosts",
+			singleCheck: "hasCreatedPost",
+			multiCheck: "hasCreatedPosts",
+			multiCheckAll: "hasCreatedAllPosts"
+		});
+
+		checkAssociationFields("child", {
+			connection: () => ({
+				obj: ModularGQL.compiled("post").getFields(),
+				type: ModularGQL.compiled("user"),
+				resolve: parentResolveFromChild
+			}),
+			element: "createdPostOfUser",
+			singleCheck: "isCreatedPostOfUser"
+		});
+	});
+
+	context("many to many relationship", function() {
+		beforeEach(function() {
+			ModularGQL.type("user").associateWith("post", () => ({
+				name: "likedPosts",
+				itemName: "likedPost",
+				parent: {
+					connection: GraphQLString,
+					connectionArgs: parentConnectionArgs,
+					resolve: parentResolveFromChild,
+					naming: {
+						multiCheckAll: () => "hasLikedAllPosts"
+					}
+				},
+				child: {
+					connection: GraphQLInt,
+					connectionArgs: childConnectionArgs,
+					resolve: childResolveFromParent
+				}
+			}));
+
+			ModularGQL.generate();
+		});
+
+		checkAssociationFields("parent", {
+			connection: () => ({
+				obj: ModularGQL.compiled("user").getFields(),
+				type: GraphQLInt,
+				args: childConnectionArgs,
+				resolve: childResolveFromParent
+			}),
+			element: "likedPosts",
+			singleCheck: "hasLikedPost",
+			multiCheck: "hasLikedPosts",
+			multiCheckAll: "hasLikedAllPosts"
+		});
+
+		checkAssociationFields("child", {
+			connection: () => ({
+				obj: ModularGQL.compiled("post").getFields(),
+				type: GraphQLString,
+				args: parentConnectionArgs,
+				resolve: parentResolveFromChild
+			}),
+			element: "likedPostOfUser",
+			singleCheck: "isLikedPostOfUser",
+			multiCheck: "isLikedPostOfUsers",
+			multiCheckAll: "isLikedPostOfAllUsers"
 		});
 	});
 });
 
+interface IResolveInputObject {
+	obj?: any;
+	args?: any;
+	context?: any;
+	info?: any;
+}
+
+interface IResolveInput {
+	from: IResolveInputObject;
+	to: any;
+}
+
 function checkAssociationFields(
 	referenceName: string,
 	config: {
-		connection: () => { obj; type; args?; resolve };
+		connection: () => {
+			obj;
+			type;
+			args?;
+			resolve;
+			resolves?: {
+				correct: IResolveInputObject[];
+				incorrect: IResolveInputObject[];
+			};
+		};
 		element?: string;
 		singleCheck?: string;
 		multiCheck?: string;
 		multiCheckAll?: string;
 	}
 ) {
-	describe(`${referenceName} fields check`, () => {
+	describe(`${referenceName} fields check`, function() {
 		let connection;
 		beforeEach(() => {
 			connection = config.connection();
@@ -221,15 +242,16 @@ function checkAssociationFields(
 					id: {
 						type: new GraphQLNonNull(GraphQLID)
 					}
-				}),
-				resolves: () => [
-					{
-						from: {
-							obj: {}
-						},
-						to: true
-					}
-				]
+				})
+				/*
+				resolves: () => generateResolvesData(
+						validInput => true,
+						invalidInput => false
+					)(
+						connection.resolves.correct,
+						connection.resolves.incorrect
+					)
+				*/
 			});
 		}
 
@@ -246,6 +268,7 @@ function checkAssociationFields(
 		}
 
 		if (config.multiCheckAll) {
+			console.log("Generating multi check all test");
 			checkField("multi check all", {
 				obj: () => connection.obj[config.multiCheckAll],
 				type: () => GraphQLBoolean,
@@ -254,6 +277,12 @@ function checkAssociationFields(
 						type: new GraphQLNonNull(new GraphQLList(GraphQLID))
 					}
 				})
+				/*
+				resolves: () => generateResolvesData(
+					validInput => true,
+					invalidInput => false
+				)
+				*/
 			});
 		}
 	});
@@ -266,20 +295,10 @@ function checkField(
 		type?: () => any;
 		args?: () => any;
 		resolve?: () => any;
-		resolves?: () => [
-			{
-				from: {
-					obj?: any;
-					args?: any;
-					context?: any;
-					info?: any;
-				};
-				to: any;
-			}
-		];
+		resolves?: () => IResolveInput[];
 	}
 ) {
-	describe(`${referenceName} field`, () => {
+	describe(`${referenceName} field`, function() {
 		let transformedArgs = [];
 		beforeEach(() => {
 			if (config.args) {
@@ -287,15 +306,16 @@ function checkField(
 			}
 		});
 
-		if (config.type) {
-			it(`should add correct type property`, () =>
-				assert.deepInclude(config.obj(), {
+		if (config.type != null) {
+			it(`should add correct type property`, function() {
+				return assert.deepInclude(config.obj(), {
 					type: config.type()
-				}));
+				});
+			});
 		}
 
-		if (config.args) {
-			it(`should add correct args property`, done => {
+		if (config.args != null) {
+			it(`should add correct args property`, function(done) {
 				transformedArgs.forEach(value =>
 					assert.nestedProperty(config.obj().args, "[0].name", value)
 				);
@@ -304,30 +324,56 @@ function checkField(
 			});
 		}
 
-		if (config.resolve) {
-			it(`should add correct resolve method`, () =>
-				assert.include(config.obj(), {
+		if (config.resolve != null) {
+			it(`should add correct resolve method`, function() {
+				return assert.include(config.obj(), {
 					resolve: config.resolve()
-				}));
+				});
+			});
 		}
 
-		if (config.resolves) {
-			config.resolves().forEach((resolve, index) => {
-				it(`should resolve correctly given input set ${index}`, () =>
-					assert.deepEqual(
-						config
-							.obj()
-							.resolve(
-								resolve.from.obj,
-								resolve.from.args,
-								resolve.from.context,
-								resolve.from.info
-							),
-						resolve.to
-					));
+		if (config.resolves != null) {
+			it(`should resolve correctly for all input sets`, function() {
+				config.resolves().forEach((resolveInput, index) => {
+					it(`should resolve correctly given input set ${index}`, function() {
+						return assert.deepEqual(
+							config
+								.obj()
+								.resolve(
+									resolveInput.from.obj,
+									resolveInput.from.args,
+									resolveInput.from.context,
+									resolveInput.from.info
+								),
+							resolveInput.to
+						);
+					});
+				});
 			});
 		}
 	});
+}
+
+function generateResolvesData(
+	validResult: (validInput: IResolveInputObject) => any,
+	invalidResult: (invalidInput: IResolveInputObject) => any
+) {
+	return (
+		correctInputs: IResolveInputObject[] = [],
+		inorrectInputs: IResolveInputObject[] = []
+	) => {
+		return correctInputs
+			.map(correctInput => ({
+				from: correctInput,
+				to: validResult(correctInput)
+			}))
+			.concat(
+				inorrectInputs.map(incorrectInput => ({
+					from: incorrectInput,
+					to: validResult(incorrectInput)
+				}))
+			);
+	};
 }
 
 function transformArgs(args) {
