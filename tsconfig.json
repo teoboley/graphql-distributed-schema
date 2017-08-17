@@ -10,6 +10,7 @@
 		"emitDecoratorMetadata": true,
 		"sourceMap": false,
 		"outDir": "../dist",
-		"removeComments": false
+		"removeComments": false,
+		"skipLibCheck": true
 	}
 }

@@ -1,23 +1,24 @@
 import {
 	GraphQLFieldConfigMap,
-	GraphQLFieldConfigMapThunk,
-	GraphQLInterfacesThunk,
 	GraphQLInterfaceType,
+	GraphQLIsTypeOfFn,
 	GraphQLObjectType,
 	GraphQLObjectTypeConfig,
-	GraphQLResolveInfo
+	Thunk
 } from "graphql";
 
 import { associator, IAssociationRawFunction } from "./associations";
 
 export interface IDistributedRawType {
 	name: string;
-	interfaces?: GraphQLInterfacesThunk | GraphQLInterfaceType[];
-	isTypeOf?: (value: any, info?: GraphQLResolveInfo) => boolean;
+	interfaces?: Thunk<GraphQLInterfaceType[]> | GraphQLInterfaceType[];
+	isTypeOf?: GraphQLIsTypeOfFn<any, any>;
 	description?: string;
-	fieldsCollection: Array<GraphQLFieldConfigMapThunk | GraphQLFieldConfigMap>;
+	fieldsCollection: Thunk<GraphQLFieldConfigMap<any, any>>[];
 	extend: (
-		fields: GraphQLFieldConfigMapThunk | GraphQLFieldConfigMap
+		fields:
+			| Thunk<GraphQLFieldConfigMap<any, any>>
+			| GraphQLFieldConfigMap<any, any>
 	) => number;
 	associateWith: IAssociationRawFunction;
 }
@@ -35,7 +36,7 @@ export class ModularGraphQL {
 
 	public type(
 		key: string,
-		obj?: GraphQLObjectTypeConfig
+		obj?: GraphQLObjectTypeConfig<any, any>
 	): IDistributedRawType {
 		if (obj === undefined) {
 			if (this.rawTypes[key] === undefined) {
@@ -105,7 +106,7 @@ export class ModularGraphQL {
 
 	private createRawType(
 		key: string,
-		obj: GraphQLObjectTypeConfig
+		obj: GraphQLObjectTypeConfig<any, any>
 	): IDistributedRawType {
 		if (this.rawTypes[key]) {
 			throw new Error(`Type '${key}' already exists.`);
