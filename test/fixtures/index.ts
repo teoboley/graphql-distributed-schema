@@ -66,7 +66,8 @@ export default class MockSchema {
 						)
 					);
 					return DataStore.users[prefObj.userId];
-				}
+				},
+				getId: user => DataStore.users.indexOf(user).toString()
 			},
 			child: {
 				resolve: userObj => {
@@ -96,7 +97,8 @@ export default class MockSchema {
 						chalk.yellow("*createdPosts: Resolving user from post")
 					);
 					return DataStore.users[postObj.userId];
-				}
+				},
+				getId: user => DataStore.users.indexOf(user).toString()
 			},
 			child: {
 				connection: new GraphQLList(this.modularGQL.compiled("post")),
@@ -124,7 +126,9 @@ export default class MockSchema {
 				resolve: postObj => {
 					log(chalk.yellow("*likedPosts: Resolving users from post"));
 					return postObj.likedBy.map(id => DataStore.users[id]);
-				}
+				},
+				getIds: users =>
+					users.map(user => DataStore.users.indexOf(user).toString())
 			},
 			child: {
 				connection: new GraphQLList(this.modularGQL.compiled("post")),

@@ -64,7 +64,7 @@ export function associator(
 
 		parent.extend(() => generate("parent"));
 
-		// child.extend(() => generate("child"));
+		child.extend(() => generate("child"));
 	}
 
 	return associate;

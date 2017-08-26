@@ -103,7 +103,7 @@ export default function generateFields(
 		const getIdsToMatchAgainst: ((
 			obj: any
 		) => string[]) = associatedObj => {
-			console.log(`associatedObj: ${JSON.stringify(associatedObj)}`);
+			// console.log(`associatedObj: ${JSON.stringify(associatedObj)}`);
 
 			let arr = [];
 
@@ -115,7 +115,7 @@ export default function generateFields(
 				arr = [associated.config.getId(associatedObj).toString()];
 			}
 
-			console.log(`associatedObj ids: ${arr}`);
+			// console.log(`associatedObj ids: ${arr}`);
 
 			return arr;
 		};
@@ -133,7 +133,7 @@ export default function generateFields(
 				return Promise.resolve(
 					associated.config.resolve(currentObj, {}, context, info)
 				).then(associatedObj => {
-					console.log(`Checking id: ${id}`);
+					// console.log(`Checking id: ${id}`);
 					return (
 						getIdsToMatchAgainst(associatedObj).indexOf(
 							id.toString()
@@ -173,7 +173,7 @@ export default function generateFields(
 								info
 							)
 						).then(associatedObj => {
-							console.log(`Checking ids: ${ids}`);
+							// console.log(`Checking ids: ${ids}`);
 							return ids.map(id => {
 								return (
 									getIdsToMatchAgainst(associatedObj).indexOf(
@@ -215,7 +215,7 @@ export default function generateFields(
 								info
 							)
 						).then(associatedObj => {
-							console.log(`Checking ids: ${ids}`);
+							// console.log(`Checking ids: ${ids}`);
 							return ids.reduce(
 								(prev, id, index) =>
 									prev &&

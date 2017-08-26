@@ -386,5 +386,274 @@ describe("Associations", function() {
 				});
 			});
 		});
+
+		context("preferences", function() {
+			const prefQuery = (id, fragment) =>
+				rootQuery(`
+					preferenceSet(id: ${id}) {
+						${fragment}
+					}
+				`).then(data => data.preferenceSet);
+
+			it("returns an object when querying preferenceSet(id: '0')", function() {
+				return assert.eventually.isObject(
+					prefQuery(
+						"0",
+						`
+						displayName
+					`
+					)
+				);
+			});
+
+			context("preferenceSet", function() {
+				context("element field", function() {
+					it("returns an object when querying preferenceSet(id: '0').preferenceSetOfUser", function() {
+						return assert.eventually.isObject(
+							prefQuery(
+								"0",
+								`
+								preferenceSetOfUser {
+									name
+								}
+								`
+							).then(pref => pref.preferenceSetOfUser)
+						);
+					});
+				});
+
+				context("single check", function() {
+					it("returns true when querying preferenceSet(id: '0').isPreferenceSetOfUser('0')", function() {
+						return assert.eventually.isTrue(
+							prefQuery(
+								"0",
+								`
+						isPreferenceSetOfUser(id: "0")
+					`
+							).then(pref => pref.isPreferenceSetOfUser)
+						);
+					});
+
+					it("returns false when querying preferenceSet(id: '0').isPreferenceSetOfUser('1')", function() {
+						return assert.eventually.isFalse(
+							prefQuery(
+								"0",
+								`
+						isPreferenceSetOfUser(id: "1")
+					`
+							).then(pref => pref.isPreferenceSetOfUser)
+						);
+					});
+
+					it("returns false when querying preferenceSet(id: '0').isPreferenceSetOfUser('2')", function() {
+						return assert.eventually.isFalse(
+							prefQuery(
+								"0",
+								`
+						isPreferenceSetOfUser(id: "2")
+					`
+							).then(pref => pref.isPreferenceSetOfUser)
+						);
+					});
+				});
+			});
+		});
+
+		context("post", function() {
+			const postQuery = (id, fragment) =>
+				rootQuery(`
+					post(id: ${id}) {
+						${fragment}
+					}
+				`).then(data => data.post);
+
+			it("returns an object when querying post(id: '0')", function() {
+				return assert.eventually.isObject(
+					postQuery(
+						"0",
+						`
+						title
+					`
+					)
+				);
+			});
+
+			context("createdPosts", function() {
+				context("element field", function() {
+					it("returns an array when querying post(id: '0').createdPostOfUser", function() {
+						return assert.eventually.isObject(
+							postQuery(
+								"0",
+								`
+								createdPostOfUser {
+									name
+								}
+								`
+							).then(post => post.createdPostOfUser)
+						);
+					});
+				});
+
+				context("single check", function() {
+					it("returns true when querying post(id: '0').isCreatedPostOfUser('0')", function() {
+						return assert.eventually.isTrue(
+							postQuery(
+								"0",
+								`
+						isCreatedPostOfUser(id: "0")
+					`
+							).then(post => post.isCreatedPostOfUser)
+						);
+					});
+
+					it("returns false when querying post(id: '0').isCreatedPostOfUser('1')", function() {
+						return assert.eventually.isFalse(
+							postQuery(
+								"0",
+								`
+						isCreatedPostOfUser(id: "1")
+					`
+							).then(post => post.isCreatedPostOfUser)
+						);
+					});
+
+					it("returns false when querying post(id: '0').isCreatedPostOfUser('3')", function() {
+						return assert.eventually.isFalse(
+							postQuery(
+								"0",
+								`
+						isCreatedPostOfUser(id: "3")
+					`
+							).then(post => post.isCreatedPostOfUser)
+						);
+					});
+				});
+			});
+
+			context("likedPosts", function() {
+				context("element field", function() {
+					it("returns an array when querying post(id: '0').likedPostOfUser", function() {
+						return assert.eventually.isArray(
+							postQuery(
+								"0",
+								`
+								likedPostOfUser {
+									name
+								}
+								`
+							).then(post => post.likedPostOfUser)
+						);
+					});
+				});
+
+				context("single check", function() {
+					it("returns true when querying post(id: '0').isLikedPostOfUser('2')", function() {
+						return assert.eventually.isTrue(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUser(id: "2")
+					`
+							).then(post => post.isLikedPostOfUser)
+						);
+					});
+
+					it("returns false when querying post(id: '0').isLikedPostOfUser('0')", function() {
+						return assert.eventually.isFalse(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUser(id: "0")
+					`
+							).then(post => post.isLikedPostOfUser)
+						);
+					});
+
+					it("returns true when querying post(id: '0').isLikedPostOfUser('1')", function() {
+						return assert.eventually.isTrue(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUser(id: "1")
+					`
+							).then(post => post.isLikedPostOfUser)
+						);
+					});
+				});
+
+				context("multi check", function() {
+					it("returns [true] when querying post(id: '0').isLikedPostOfUsers(['2'])", function() {
+						return assert.eventually.sameOrderedMembers(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUsers(ids: ["2"])
+					`
+							).then(post => post.isLikedPostOfUsers),
+							[true]
+						);
+					});
+
+					it("returns [false, true] when querying post(id: '0').isLikedPostOfUsers(['0', '2'])", function() {
+						return assert.eventually.sameOrderedMembers(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUsers(ids: ["0", "2"])
+					`
+							).then(post => post.isLikedPostOfUsers),
+							[false, true]
+						);
+					});
+
+					it("returns [true, false] when querying post(id: '0').isLikedPostOfUsers(['1', '3'])", function() {
+						return assert.eventually.sameOrderedMembers(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfUsers(ids: ["1", "3"])
+					`
+							).then(post => post.isLikedPostOfUsers),
+							[true, false]
+						);
+					});
+				});
+
+				context("multi check all", function() {
+					it("returns true when querying post(id: '0').isLikedPostOfAllUsers(['2'])", function() {
+						return assert.eventually.isTrue(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfAllUsers(ids: ["2"])
+					`
+							).then(post => post.isLikedPostOfAllUsers)
+						);
+					});
+
+					it("returns false when querying post(id: '0').isLikedPostOfAllUsers(['0', '2'])", function() {
+						return assert.eventually.isFalse(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfAllUsers(ids: ["0", "2"])
+					`
+							).then(post => post.isLikedPostOfAllUsers)
+						);
+					});
+
+					it("returns true when querying post(id: '0').isLikedPostOfAllUsers(['1', '2'])", function() {
+						return assert.eventually.isTrue(
+							postQuery(
+								"0",
+								`
+						isLikedPostOfAllUsers(ids: ["1", "2"])
+					`
+							).then(post => post.isLikedPostOfAllUsers)
+						);
+					});
+				});
+			});
+		});
 	});
 });
