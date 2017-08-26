@@ -76,21 +76,6 @@ export class ModularGraphQL {
 		});
 	}
 
-	/*
-	public use(fn: IDistributedPlugin) {
-		if (this.used.indexOf(fn) === -1) {
-			fn(this);
-			this.used.push(fn);
-		}
-	}
-
-	public extendRawTypes(fn: IDistributedRawTypeExtension) {
-		if (this.rawTypeExtensions.indexOf(fn) === -1) {
-			this.rawTypeExtensions.push(fn);
-		}
-	}
-	*/
-
 	public flush() {
 		this.flushRawTypes();
 		this.flushCompiledTypes();
